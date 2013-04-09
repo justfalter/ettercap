@@ -24,10 +24,18 @@
 #include <ec_dissect.h>
 #include <ec_session.h>
 #include <ec_sslwrap.h>
+#ifdef HAVE_EC_LUA
+#include <ec_lua.h>
+#endif
 
 /* protos */
 
 FUNC_DECODER(dissector_smtp);
+
+#ifdef HAVE_EC_LUA
+void * _lua_dissector = NULL;
+#endif
+
 void smtp_init(void);
 
 /************************************************/
@@ -39,14 +47,34 @@ void smtp_init(void);
 
 void __init smtp_init(void)
 {
+#ifdef HAVE_EC_LUA
+   // Initialize lua 
+   ec_lua_init();
+   _lua_dissector = ec_lua_get_dissector("smtp");
+   if (_lua_dissector == NULL)
+     FATAL_ERROR("Could not find SMTP Lua dissector.\n");
+#endif
+
    dissect_add("smtp", APP_LAYER_TCP, 25, dissector_smtp);
    sslw_dissect_add("ssmtp", 465, dissector_smtp, SSL_ENABLED);
 }
 
+
 FUNC_DECODER(dissector_smtp)
 {
-   DECLARE_DISP_PTR_END(ptr, end);
    struct ec_session *s = NULL;
+#ifdef HAVE_EC_LUA
+
+   if (create_session_on_syn_ack("smtp", &s, PACKET, dissector_smtp) != 0)
+     return NULL;
+
+   if (create_session_on_syn_ack("ssmtp", &s, PACKET, dissector_smtp) != 0)
+     return NULL;
+
+  ec_lua_dispatch_dissector(_lua_dissector, dissector_smtp, FUNC_DECODER_ARG_VALS);
+#else
+
+   DECLARE_DISP_PTR_END(ptr, end);
    void *ident = NULL;
    char tmp[MAX_ASCII_ADDR_LEN];
    
@@ -183,7 +211,7 @@ FUNC_DECODER(dissector_smtp)
                                     PACKET->DISSECTOR.pass);
       return NULL;
    }
-   
+#endif 
    return NULL;
 }
 

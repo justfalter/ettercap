@@ -19,9 +19,12 @@
 ETTERCAP_LUA_CORE_PATH = "@INSTALL_LUA_CORE@"
 ETTERCAP_LUA_LIB_PATH = "@INSTALL_LUA_LIBS@"
 ETTERCAP_LUA_SCRIPT_PATH = "@INSTALL_LUA_SCRIPTS@"
+ETTERCAP_LUA_DISSECTOR_PATH = "@INSTALL_LUA_DISSECTORS@"
 
 package.path = package.path .. ";" .. ETTERCAP_LUA_CORE_PATH .. "/?.lua" ..
                 ";" .. ETTERCAP_LUA_LIB_PATH .. "/?.lua"
 
 require("ettercap")
+dissectors = require("ettercap_dissect")
 
+dissectors.init_dissector("smtp")

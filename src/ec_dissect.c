@@ -311,6 +311,20 @@ int dissect_on_port_level(char *name, u_int16 port, u_int8 level)
 }
 
 
+inline int create_session_on_syn_ack(char * name, struct ec_session **s, struct packet_object * po, void * func)
+{
+  if ((po->L4.flags & TH_SYN) && (po->L4.flags & TH_ACK) &&
+      dissect_on_port(name, ntohs(po->L4.src)) == ESUCCESS) {
+      DEBUG_MSG("%s --> create_session_on_syn_ack", name);
+      /* create the session */
+      dissect_create_session(s, PACKET, DISSECT_CODE(func));
+      session_put(*s);
+      return 1;
+  }
+  return 0;
+}
+
+
 /* EOF */
 
 // vim:ts=3:expandtab

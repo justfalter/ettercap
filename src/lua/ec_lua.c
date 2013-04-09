@@ -25,11 +25,10 @@
 #include <ec_hook.h>
 #include <ec_lua_config.h>
 #include <ec_lua.h>
+#include <ec_lua_main.h>
+#include <ec_lua_dissector.h>
 #include <ec_error.h>
 #include <ec_packet.h>
-#include "lua.h"
-#include "lualib.h"
-#include "lauxlib.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -43,7 +42,7 @@ struct lua_hook_list {
 SLIST_HEAD(, lua_hook_list) lua_hook_table;
 
 /* additional functions */
-lua_State* _lua_state;
+lua_State* _lua_state = NULL;
 int _lua_script_count = 0;
 char **_lua_scripts = NULL;
 int _lua_arg_count = 0;
@@ -51,19 +50,22 @@ char **_lua_args = NULL;
 
 LUALIB_API int luaopen_ettercap_c(lua_State *L);
 int ec_lua_panic(lua_State * state);
+void ec_lua_handle_cli();
 
 /*********************************************************/
 
+lua_State * ec_lua_state()
+{
+  return _lua_state;
+}
+
+
 EC_API_EXTERN int ec_lua_init() 
 {
-    int i = 0;
-    DEBUG_MSG("EC_LUA: ec_lua_init started...");
-
-    if (_lua_script_count == 0) {
-      // We've got no scripts to load, so there's no reason to start up.
-      USER_MSG("Lua: no scripts were specified, not starting up!");
+    if (_lua_state != NULL)
       return 0;
-    }
+
+    DEBUG_MSG("EC_LUA: ec_lua_init started...");
 
     // Initialize lua
     if ((_lua_state = luaL_newstate()) == NULL) 
@@ -78,6 +80,7 @@ EC_API_EXTERN int ec_lua_init()
     /* load lua libraries */
     luaL_openlibs(_lua_state);
     luaopen_ettercap_c(_lua_state);
+    luaopen_ettercap_dissector_c(_lua_state);
 
     /* Now load the lua files */
     int dofile_err_code = luaL_dofile(_lua_state, INSTALL_LUA_INIT);
@@ -88,8 +91,24 @@ EC_API_EXTERN int ec_lua_init()
       // We just error out of the whole process..
       LUA_FATAL_ERROR("EC_LUA Failed to initialize %s. Error %d: %s\n", 
           INSTALL_LUA_INIT, dofile_err_code, lua_tostring(_lua_state, -1));
+      return 0;
     }
-    
+
+    ec_lua_handle_cli();
+
+    DEBUG_MSG("Lua initialized!");
+    return 0;
+}
+
+void ec_lua_handle_cli()
+{
+    int i = 0;
+    if (_lua_script_count == 0) {
+      // We've got no scripts to load, so there's no reason to start up.
+      //USER_MSG("Lua: no scripts were specified, not starting up!");
+      return;
+    }
+
     // Push an array of the list of scripts specified on the command line
     // we don't have args yet, but that should be next
     lua_getglobal(_lua_state,ETTERCAP_LUA_MODULE);
@@ -117,9 +136,10 @@ EC_API_EXTERN int ec_lua_init()
       LUA_FATAL_ERROR("EC_LUA script load failed with error %d: \n\t%s\n", err_code,
                 lua_tostring(_lua_state, -1));
     }
+}
 
-    USER_MSG("Lua initialized!");
-    return 0;
+void ec_lua_call_decoder(u_char *buf, u_int16 buflen, int *len, struct packet_object *po) 
+{
 }
 
 EC_API_EXTERN int ec_lua_cli_add_script(char * script) 
@@ -270,7 +290,7 @@ int ec_lua_dispatch_hooked_packet(int point, struct packet_object * po)
 static int l_log(lua_State* state)
 {
   const char *str = lua_tostring(state, 1);
-  USER_MSG("%s", str);
+  printf("%s", str);
   return 0;
 }
 

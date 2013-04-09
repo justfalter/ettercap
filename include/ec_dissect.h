@@ -36,7 +36,7 @@ EC_API_EXTERN size_t dissect_create_ident(void **i, struct packet_object *po, u_
 
 EC_API_EXTERN int dissect_on_port(char *name, u_int16 port);
 EC_API_EXTERN int dissect_on_port_level(char *name, u_int16 port, u_int8 level);
-
+inline int create_session_on_syn_ack(char * name, struct ec_session **s, struct packet_object * po, void * func);
 
 /* return true if the packet is coming from the server */
 #define FROM_SERVER(name, pack) (dissect_on_port(name, ntohs(pack->L4.src)) == ESUCCESS)
@@ -59,6 +59,7 @@ EC_API_EXTERN int dissect_on_port_level(char *name, u_int16 port, u_int8 level);
          return NULL;                                                   \
       }                                                                 \
    }while(0)
+
 
 /*
  * helper macros to get the banner of a service if it is the first thing 

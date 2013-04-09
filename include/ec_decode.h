@@ -21,13 +21,17 @@ enum {
    APP_LAYER_UDP = 52,
 };
 
-#define FUNC_DECODER(func) void * func(u_char *buf, u_int16 buflen, int *len, struct packet_object *po)
-#define FUNC_DECODER_PTR(func) void * (*func)(u_char *buf, u_int16 buflen, int *len, struct packet_object *po)
+#define FUNC_DECODER_ARGS u_char *buf, u_int16 buflen, int *len, struct packet_object *po
+
+#define FUNC_DECODER(func) void * func(FUNC_DECODER_ARGS)
+#define FUNC_DECODER_PTR(func) void * (*func)(FUNC_DECODER_ARGS)
 
 #define DECODE_DATALEN   buflen
 #define DECODE_DATA      buf
 #define DECODED_LEN      *len
 #define PACKET           po
+
+#define FUNC_DECODER_ARG_VALS DECODE_DATA, DECODE_DATALEN, &(DECODED_LEN), PACKET
 
 #define EXECUTE_DECODER(x) do{ \
    if (x) \
