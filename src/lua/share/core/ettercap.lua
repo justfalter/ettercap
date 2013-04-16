@@ -24,8 +24,10 @@
 ettercap = {}
 
 local ffi = require("ettercap_ffi")
+require('packet_meta')
 local ettercap_c = require("ettercap_c")
 local eclib = require("eclib")
+local op = require('io')
 ettercap.reg = require("ettercap_reg")
 
 --- Log's a message using ettercap's ui_msg function.
@@ -38,6 +40,19 @@ log = function(fmt, ...)
   ettercap_c.log(string.format(fmt, ...))
 end
 
+file_exists = function(filename)
+  local msg = nil
+  local fio, errmsg, errno = io.open(filename, "r")
+  if fio then
+    fio:close()
+    return true
+  end
+
+  assert(errno == 2, "Could not open '" .. filename .. "': " .. errmsg)
+
+  return false
+end
+
 require('dumper')
 
 --- Dumps data structure(s) to log
@@ -45,7 +60,6 @@ require('dumper')
 dump = function (...)
   log(DataDumper(...), "\n---")
 end
-
 
 -- Script interface
 --
@@ -112,12 +126,24 @@ do
 
   function Script.new (filename, arguments)
     local script_params = arguments or {};  
-    local full_path = ETTERCAP_LUA_SCRIPT_PATH .. "/" .. filename .. ".lua";
-    local file_closure = assert(loadfile(full_path));
+    local script_path = filename 
+    local full_path = ETTERCAP_LUA_SCRIPT_PATH .. "/" .. filename;
+
+    local file_closure = nil
+
+    if file_exists(filename) == true then
+      file_closure = assert(loadfile(filename))
+      script_path = filename
+    elseif file_exists(full_path) == true then
+      file_closure = assert(loadfile(full_path))
+      script_path = full_path
+    else
+      log("ERROR: Could not find script '%s'\n", filename)
+      return nil
+    end
 
     local env = {
-      SCRIPT_PATH = full_path,
-      SCRIPT_NAME = filename,
+      SCRIPT_PATH = script_path,
       dependencies = {},
     };
 
@@ -141,7 +167,9 @@ do
       assert(actual_type == required_type, 
              "Incorrect of missing field: '" .. required_field_name .. "'." ..
              " Must be of type: '" .. required_type .. "'" ..
-             " got type: '" .. actual_type .. "'"
+             " got type: '" .. actual_type .. "'." ..
+             " Script: '" .. env["SCRIPT_PATH"] .. "'"
+
       );
     end
 
@@ -251,7 +279,7 @@ end
 -- @param name (string) The name of the script we want to load.
 -- @param args (table) A table of key,value tuples
 local ettercap_load_script = function (name, args)
-  local script = Script.new(name, args)
+  local script = assert(Script.new(name, args), "Failed to load: " .. name)
   hook_add(script.hook_point, create_hook(script))
 end
 
